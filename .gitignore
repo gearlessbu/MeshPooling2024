@@ -1,0 +1,5 @@
+**/__pycache__/**
+python
+!python/main.py
+!python/meshVAE_graph2.py
+!python/utils.py

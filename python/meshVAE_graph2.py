@@ -12,7 +12,7 @@ from utils import *
 
 
 class convMesh():
-    config = tf.ConfigProto()
+    config = tf.compat.v1.ConfigProto()
     config.gpu_options.allow_growth = True
 
     def __init__(self, feature_file, FLAGS, logfolder):
@@ -52,14 +52,14 @@ class convMesh():
             self.vertex_dim = 9
             self.finaldim = 9
 
-        self.inputs = tf.placeholder(tf.float64, [None, self.pointnum1, self.vertex_dim], name='input_mesh')
+        self.inputs = tf.compat.v1.placeholder(tf.float64, [None, self.pointnum1, self.vertex_dim], name='input_mesh')
         self.nb1 = tf.constant(self.neighbour1, dtype='int64', shape=[self.pointnum1, self.maxdegree1],
                                name='nb_relation1')
         self.nb2 = tf.constant(self.neighbour2, dtype='int64', shape=[self.pointnum2, self.maxdegree2],
                                name='nb_relation2')
         self.degrees1 = tf.constant(self.degree1, dtype='float64', shape=[self.pointnum1, 1], name='degrees1')
         self.degrees2 = tf.constant(self.degree2, dtype='float64', shape=[self.pointnum2, 1], name='degrees2')
-        self.random = tf.placeholder(tf.float64, [None, self.hidden_dim], name='random_samples')
+        self.random = tf.compat.v1.placeholder(tf.float64, [None, self.hidden_dim], name='random_samples')
         self.cw1 = tf.constant(self.cotw1, dtype='float64', shape=[self.pointnum1, self.maxdegree1, 1], name='a/cw1')
         self.cw2 = tf.constant(self.cotw2, dtype='float64', shape=[self.pointnum2, self.maxdegree2, 1], name='a/cw2')
         self.Laplace1 = self.L1
@@ -91,27 +91,27 @@ class convMesh():
         self.dec_w = []
         for i in range(self.layers):
             if i == self.layers - 1:
-                enc_weight = tf.get_variable("encoder/conv_weight"+str(i+1), [self.vertex_dim * self.K, self.finaldim], tf.float64,
+                enc_weight = tf.compat.v1.get_variable("encoder/conv_weight"+str(i+1), [self.vertex_dim * self.K, self.finaldim], tf.float64,
                                   tf.random_normal_initializer(stddev=0.02))
-                dec_weight = tf.get_variable("decoder/conv_weight"+str(i+1), [self.vertex_dim * self.K, self.finaldim], tf.float64,
+                dec_weight = tf.compat.v1.get_variable("decoder/conv_weight"+str(i+1), [self.vertex_dim * self.K, self.finaldim], tf.float64,
                                   tf.random_normal_initializer(stddev=0.02))
             else:
-                enc_weight = tf.get_variable("encoder/conv_weight"+str(i+1), [self.vertex_dim * self.K, self.vertex_dim], tf.float64,
+                enc_weight = tf.compat.v1.get_variable("encoder/conv_weight"+str(i+1), [self.vertex_dim * self.K, self.vertex_dim], tf.float64,
                                   tf.random_normal_initializer(stddev=0.02))
-                dec_weight = tf.get_variable("decoder/conv_weight"+str(i+1), [self.vertex_dim * self.K, self.vertex_dim], tf.float64,
+                dec_weight = tf.compat.v1.get_variable("decoder/conv_weight"+str(i+1), [self.vertex_dim * self.K, self.vertex_dim], tf.float64,
                                   tf.random_normal_initializer(stddev=0.02))
             self.enc_w.append(enc_weight)
             self.dec_w.append(dec_weight)
 
 
-        self.meanpara = tf.get_variable("encoder/mean_weights", [self.pointnum2 * self.finaldim, self.hidden_dim],
+        self.meanpara = tf.compat.v1.get_variable("encoder/mean_weights", [self.pointnum2 * self.finaldim, self.hidden_dim],
                                         tf.float64, tf.random_normal_initializer(stddev=0.02))
-        self.stdpara = tf.get_variable("encoder/std_weights", [self.pointnum2 * self.finaldim, self.hidden_dim],
+        self.stdpara = tf.compat.v1.get_variable("encoder/std_weights", [self.pointnum2 * self.finaldim, self.hidden_dim],
                                        tf.float64, tf.random_normal_initializer(stddev=0.02))
 
         # train
         self.z_mean, self.z_stddev = self.encoder(self.inputs, train=True)
-        self.guessed_z = self.z_mean + self.z_stddev * tf.random_normal(tf.shape(self.z_mean), 0, 1, dtype=tf.float64)
+        self.guessed_z = self.z_mean + self.z_stddev * tf.random.normal(tf.shape(self.z_mean), 0, 1, dtype=tf.float64)
         self.generated_mesh_train = self.decoder(self.guessed_z, train=True)
 
         # test
@@ -125,12 +125,12 @@ class convMesh():
         self.generation_loss = self.lambda_generation * tf.reduce_mean(tf.reduce_sum(tf.pow(self.inputs - self.generated_mesh_train, 2.0), [1, 2]))
 
         self.latent_loss = self.lambda_latent * tf.reduce_mean(0.5 * tf.reduce_sum(
-            tf.square(self.z_mean) + tf.square(self.z_stddev) - tf.log(1e-8 + tf.square(self.z_stddev)) - 1, [1]))
+            tf.square(self.z_mean) + tf.square(self.z_stddev) - tf.math.log(1e-8 + tf.square(self.z_stddev)) - 1, [1]))
 
         self.valid_loss = self.lambda_generation * tf.reduce_mean(tf.reduce_sum(tf.pow(self.inputs - self.generated_mesh_rebuild, 2.0), [1, 2]))
 
-        reg_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, scope='encoder') + tf.get_collection(
-            tf.GraphKeys.REGULARIZATION_LOSSES, scope='decoder')
+        reg_losses = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.REGULARIZATION_LOSSES, scope='encoder') + tf.compat.v1.get_collection(
+            tf.compat.v1.GraphKeys.REGULARIZATION_LOSSES, scope='decoder')
 
         self.r2_loss = sum(reg_losses) + tf.nn.l2_loss(self.enc_w) + tf.nn.l2_loss(self.dec_w) + tf.nn.l2_loss(self.meanpara) + tf.nn.l2_loss(self.stdpara)
         self.r2_loss = self.r2_loss * self.lambda_r2
@@ -142,15 +142,15 @@ class convMesh():
             new_learning_rate = tf.train.exponential_decay(self.lr, self.global_step, 3000, 0.5, staircase=True)
             self.optimizer = tf.train.AdamOptimizer(new_learning_rate).minimize(self.loss)
         else:
-            self.optimizer = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
+            self.optimizer = tf.compat.v1.train.AdamOptimizer(self.lr).minimize(self.loss)
 
-        self.saver_best = tf.train.Saver(max_to_keep = None)
-        self.saver_vae = tf.train.Saver(max_to_keep = 3)
-        tf.summary.scalar('loss_all', self.loss)
-        tf.summary.scalar('loss_generation', self.generation_loss)
-        tf.summary.scalar('loss_latent', self.latent_loss)
-        tf.summary.scalar('loss_r2', self.r2_loss)
-        self.merge_summary = tf.summary.merge_all()
+        self.saver_best = tf.compat.v1.train.Saver(max_to_keep = None)
+        self.saver_vae = tf.compat.v1.train.Saver(max_to_keep = 3)
+        tf.compat.v1.summary.scalar('loss_all', self.loss)
+        tf.compat.v1.summary.scalar('loss_generation', self.generation_loss)
+        tf.compat.v1.summary.scalar('loss_latent', self.latent_loss)
+        tf.compat.v1.summary.scalar('loss_r2', self.r2_loss)
+        self.merge_summary = tf.compat.v1.summary.merge_all()
 
         self.checkpoint_dir = self.logfolder
         if os.path.exists(self.logfolder + '/log.txt'):
@@ -165,16 +165,16 @@ class convMesh():
 
     # functions
     def get_conv_weights(self, input_dim, output_dim, name='convweight'):
-        with tf.variable_scope(name) as scope:
-            n = tf.get_variable("nb_weights", [input_dim, output_dim], tf.float64,
+        with tf.compat.v1.variable_scope(name) as scope:
+            n = tf.compat.v1.get_variable("nb_weights", [input_dim, output_dim], tf.float64,
                                 tf.random_normal_initializer(stddev=0.02))
-            v = tf.get_variable("vertex_weights", [input_dim, output_dim], tf.float64,
+            v = tf.compat.v1.get_variable("vertex_weights", [input_dim, output_dim], tf.float64,
                                 tf.random_normal_initializer(stddev=0.02))
 
             return n, v
 
     def encoder(self, input_feature, train=True, reuse=False):
-        with tf.variable_scope("encoder") as scope:
+        with tf.compat.v1.variable_scope("encoder") as scope:
             scope.set_regularizer(tf.contrib.layers.l2_regularizer(scale=1.0))
             if not train or reuse:
                 train = False
@@ -201,7 +201,7 @@ class convMesh():
             return mean, stddev
 
     def decoder(self, latent_tensor, train=True, reuse=False):
-        with tf.variable_scope("decoder") as scope:
+        with tf.compat.v1.variable_scope("decoder") as scope:
             scope.set_regularizer(tf.contrib.layers.l2_regularizer(scale=1.0))
             if not train or reuse:
                 train = False
@@ -226,11 +226,11 @@ class convMesh():
         return conv1
 
     def train(self):
-        with tf.Session(config=self.config) as self.sess:
+        with tf.compat.v1.Session(config=self.config) as self.sess:
             if not os.path.exists(self.checkpoint_dir):
                 os.makedirs(self.checkpoint_dir)
 
-            tf.global_variables_initializer().run()
+            tf.compat.v1.global_variables_initializer().run()
 
             could_load_vae, checkpoint_counter_vae = self.load(self.checkpoint_dir)
 
@@ -239,7 +239,7 @@ class convMesh():
             else:
                 self.start_step_vae = 0
 
-            self.write = tf.summary.FileWriter(self.logfolder + '/logs/', self.sess.graph)
+            self.write = tf.compat.v1.summary.FileWriter(self.logfolder + '/logs/', self.sess.graph)
 
             rng = np.random.RandomState(23456)
 

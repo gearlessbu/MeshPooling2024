@@ -358,11 +358,11 @@ def recover_data(recover_feature, logrmin, logrmax, smin, smax, resultmin, resul
 
 
 def linear1(input_, matrix, output_size, name='Linear', stddev=0.02, bias_start=0.0):
-    with tf.variable_scope(name) as scope:
+    with tf.compat.v1.variable_scope(name) as scope:
         scope.set_regularizer(tf.contrib.layers.l2_regularizer(scale=1.0))
-        # matrix = tf.get_variable("weights", [input_size, output_size], tf.float64,
+        # matrix = tf.compat.v1.get_variable("weights", [input_size, output_size], tf.float64,
         #                          tf.random_normal_initializer(stddev=stddev))
-        bias = tf.get_variable("bias", [output_size], tf.float64,
+        bias = tf.compat.v1.get_variable("bias", [output_size], tf.float64,
                                initializer=tf.constant_initializer(bias_start))
 
         return tf.matmul(input_, matrix) + bias
@@ -373,29 +373,29 @@ def leaky_relu(input_, alpha=0.02):
 
 
 def batch_norm_wrapper(inputs, name='batch_norm', is_training=False, decay=0.9, epsilon=1e-5):
-    with tf.variable_scope(name) as scope:
+    with tf.compat.v1.variable_scope(name) as scope:
         scope.set_regularizer(tf.contrib.layers.l2_regularizer(scale=1.0))
         if is_training == True:
-            scale = tf.get_variable('scale', dtype=tf.float64, trainable=True,
+            scale = tf.compat.v1.get_variable('scale', dtype=tf.float64, trainable=True,
                                     initializer=tf.ones([inputs.get_shape()[-1]], dtype=tf.float64))
-            beta = tf.get_variable('beta', dtype=tf.float64, trainable=True,
+            beta = tf.compat.v1.get_variable('beta', dtype=tf.float64, trainable=True,
                                    initializer=tf.zeros([inputs.get_shape()[-1]], dtype=tf.float64))
-            pop_mean = tf.get_variable('overallmean', dtype=tf.float64, trainable=False,
+            pop_mean = tf.compat.v1.get_variable('overallmean', dtype=tf.float64, trainable=False,
                                        initializer=tf.zeros([inputs.get_shape()[-1]], dtype=tf.float64))
-            pop_var = tf.get_variable('overallvar', dtype=tf.float64, trainable=False,
+            pop_var = tf.compat.v1.get_variable('overallvar', dtype=tf.float64, trainable=False,
                                       initializer=tf.ones([inputs.get_shape()[-1]], dtype=tf.float64))
         else:
             scope.reuse_variables()
-            scale = tf.get_variable('scale', dtype=tf.float64, trainable=True)
-            beta = tf.get_variable('beta', dtype=tf.float64, trainable=True)
-            pop_mean = tf.get_variable('overallmean', dtype=tf.float64, trainable=False)
-            pop_var = tf.get_variable('overallvar', dtype=tf.float64, trainable=False)
+            scale = tf.compat.v1.get_variable('scale', dtype=tf.float64, trainable=True)
+            beta = tf.compat.v1.get_variable('beta', dtype=tf.float64, trainable=True)
+            pop_mean = tf.compat.v1.get_variable('overallmean', dtype=tf.float64, trainable=False)
+            pop_var = tf.compat.v1.get_variable('overallvar', dtype=tf.float64, trainable=False)
 
         if is_training == True:
             axis = list(range(len(inputs.get_shape()) - 1))
             batch_mean, batch_var = tf.nn.moments(inputs, axis)
-            train_mean = tf.assign(pop_mean, pop_mean * decay + batch_mean * (1 - decay))
-            train_var = tf.assign(pop_var, pop_var * decay + batch_var * (1 - decay))
+            train_mean = tf.compat.v1.assign(pop_mean, pop_mean * decay + batch_mean * (1 - decay))
+            train_var = tf.compat.v1.assign(pop_var, pop_var * decay + batch_var * (1 - decay))
             with tf.control_dependencies([train_mean, train_var]):
                 return tf.nn.batch_normalization(inputs, batch_mean, batch_var, beta, scale, epsilon)
         else:
@@ -456,13 +456,13 @@ def chebyshev(L, X, K):
 
 
 def graph_conv2(x, L, Fout, W, K, name='graph_conv', training=True, special_activation=True, no_activation=False, bn=True):
-    with tf.variable_scope(name) as scope:
+    with tf.compat.v1.variable_scope(name) as scope:
         scope.set_regularizer(tf.contrib.layers.l2_regularizer(scale=1.0))
         N, M, Fin = x.get_shape()
         L = L.tocoo()
         indices = np.column_stack((L.row, L.col))
         L = tf.SparseTensor(indices, L.data, L.shape)
-        L = tf.sparse_reorder(L)
+        L = tf.sparse.reorder(L)
         # Transform to Chebyshev basis
         x0 = tf.transpose(x, perm=[1, 2, 0])  # M x Fin x N
         x0 = tf.reshape(x0, [M, -1])  # M x Fin*N
@@ -472,10 +472,10 @@ def graph_conv2(x, L, Fout, W, K, name='graph_conv', training=True, special_acti
             x_ = tf.expand_dims(x_, 0)  # 1 x M x Fin*N
             return tf.concat([x, x_], axis=0)  # K x M x Fin*N
         if K > 1:
-            x1 = tf.sparse_tensor_dense_matmul(L, x0)
+            x1 = tf.sparse.sparse_dense_matmul(L, x0)
             x = concat(x, x1)
         for k in range(2, K):
-            x2 = 2 * tf.sparse_tensor_dense_matmul(L, x1) - x0  # M x Fin*N
+            x2 = 2 * tf.sparse.sparse_dense_matmul(L, x1) - x0  # M x Fin*N
             x = concat(x, x2)
             x0, x1 = x1, x2
         x = tf.reshape(x, [K, M, Fin, -1])  # K x M x Fin x N
